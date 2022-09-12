@@ -51,6 +51,59 @@ where
         .collect()
 }
 
+
+// Hack to delegate to self config types.
+macro_rules! self_shape {
+    ($name:ident, $selfty:ty, $self:expr, $ret:ty) => {{
+        fn $name<Tree: 'static + MerkleTreeTrait>(s: $selfty) -> Result<$ret> {
+            s.as_v1_config().$name::<Tree>()
+        }
+
+        with_shape!(u64::from($self.sector_size()), $name, $self)
+    }};
+}
+
+impl RegisteredSealProof {
+    /// Return the version for this proof.
+    pub fn version(self) -> ApiVersion {
+        use RegisteredSealProof::*;
+
+        match self {
+            StackedDrg2KiBV1 | StackedDrg8MiBV1 | StackedDrg512MiBV1 | StackedDrg32GiBV1
+            | StackedDrg64GiBV1 => ApiVersion::V1_0_0,
+            StackedDrg2KiBV1_1 | StackedDrg8MiBV1_1 | StackedDrg512MiBV1_1
+            | StackedDrg32GiBV1_1 | StackedDrg64GiBV1_1 => ApiVersion::V1_1_0,
+        }
+    }
+
+    /// Return the major version for this proof.
+    pub fn major_version(self) -> u64 {
+        self.version().as_semver().major
+    }
+
+    /// Return the minor version for this proof.
+    pub fn minor_version(self) -> u64 {
+        self.version().as_semver().minor
+    }
+
+    /// Return the patch version for this proof.
+    pub fn patch_version(self) -> u64 {
+        self.version().as_semver().patch
+    }
+
+    /// Return the sector size for this proof.
+    pub fn sector_size(self) -> SectorSize {
+        use RegisteredSealProof::*;
+        let size = match self {
+            StackedDrg2KiBV1 | StackedDrg2KiBV1_1 => constants::SECTOR_SIZE_2_KIB,
+            StackedDrg8MiBV1 | StackedDrg8MiBV1_1 => constants::SECTOR_SIZE_8_MIB,
+            StackedDrg512MiBV1 | StackedDrg512MiBV1_1 => constants::SECTOR_SIZE_512_MIB,
+            StackedDrg32GiBV1 | StackedDrg32GiBV1_1 => constants::SECTOR_SIZE_32_GIB,
+            StackedDrg64GiBV1 | StackedDrg64GiBV1_1 => constants::SECTOR_SIZE_64_GIB,
+        };
+        SectorSize(size)
+    }
+
 pub trait Evaluate: Sized {
     /// Evaluate a list of computations
     fn evaluate(self, comp: &[Computation]) -> Self;
